@@ -1,0 +1,489 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Breathe — Simple Meditation</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&display=swap" rel="stylesheet">
+  <style>
+    :root{
+      --bg:#ffffff; --surface:#f6f7fb; --card:#ffffff; --muted:#6f7686; --text:#0f1728; --border:#e6e8ee;
+      --accent:#22c1a7; --accent-2:#4c78ff; --min-scale:0.72; --max-scale:1.08; --phase-ms:4000ms;
+
+      /* Layout + type scales */
+      --container-pad: clamp(16px, 3vw, 24px);
+      --radius-xl: 28px;
+      --title-size: clamp(28px, 6vw, 44px);
+      --subtitle-size: clamp(14px, 2.2vw, 16px);
+      --phase-size: clamp(18px, 2.8vw, 22px);
+      --footer-size: clamp(11px, 1.8vw, 12px);
+
+      /* Circle size: responsive to both phone + desktop + landscape */
+      --circle-min: 220px;
+      --circle-max: 560px;
+      --circle-size: clamp(var(--circle-min), 70vmin, var(--circle-max));
+    }
+
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{
+      margin:0;
+      font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial;
+      background:
+        radial-gradient(1000px 600px at 85% -10%, rgba(34,193,167,.18) 0%, rgba(34,193,167,0) 60%),
+        linear-gradient(180deg,#f9fafc 0%, #f1f4fa 100%);
+      color:var(--text);
+      /* iOS safe-areas */
+      padding-left: env(safe-area-inset-left);
+      padding-right: env(safe-area-inset-right);
+    }
+
+    .container{max-width:1200px;margin:0 auto;padding:var(--container-pad)}
+
+    header{display:flex;align-items:center;justify-content:space-between;gap:12px}
+    .brand{display:flex;align-items:center;gap:10px;min-width:0}
+    .brand-mark{
+      width:28px;height:28px;border-radius:10px;
+      background:linear-gradient(135deg,var(--accent),var(--accent-2));
+      display:grid;place-items:center;color:#fff;font-weight:800;
+      box-shadow:0 6px 16px rgba(76,120,255,.25)}
+    .brand h1{font-size:14px;letter-spacing:.4px;margin:0;font-weight:800;white-space:nowrap}
+    .gear{
+      border:1px solid var(--border);background:#fff;border-radius:12px;
+      padding:10px 14px;font-weight:700;cursor:pointer;line-height:1;
+      min-height:44px; /* touch target */
+    }
+
+    /* Centered hero */
+    .hero{
+      margin:clamp(12px, 2.5vw, 22px) 0;
+      border:1px solid var(--border);
+      border-radius:var(--radius-xl);
+      background:var(--surface);
+      overflow:hidden
+    }
+    .hero-inner{padding:clamp(28px,5vw,48px) clamp(16px,3vw,24px);display:grid;place-items:center;gap:10px}
+    .title{
+      font-size:var(--title-size);line-height:1.12;margin:0;font-weight:800;
+      letter-spacing:-.02em;text-align:center;
+      padding-inline: clamp(0px, 2vw, 8px);
+    }
+    .subtitle{margin:6px 0 18px;color:var(--muted);font-size:var(--subtitle-size);text-align:center;max-width:62ch}
+
+    /* Hide title/subtitle while running */
+    .running .title, .running .subtitle{display:none}
+
+    .stage{display:grid;place-items:center;margin-top:4px;width:100%}
+    .circle-wrap{
+      position:relative;
+      width:var(--circle-size);
+      height:var(--circle-size);
+      display:grid;place-items:center;
+    }
+
+    /* SVG progress ring sits on top */
+    .progress-ring{position:absolute;inset:0;transform:rotate(-90deg);pointer-events:none}
+    .progress-ring .track{stroke:transparent}
+    .progress-ring .meter{stroke-linecap:round;filter:none}
+
+    .circle{
+      width:66%;height:66%;border-radius:50%;
+      background:radial-gradient(120% 120% at 30% 24%, rgba(34,193,167,.85) 0%, rgba(34,193,167,.45) 40%, rgba(76,120,255,.35) 62%, rgba(13,18,28,.06) 100%);
+      box-shadow:0 0 60px rgba(76,120,255,.22), inset 0 0 80px rgba(34,193,167,.18);
+      transform:scale(var(--min-scale));
+      transition:transform var(--phase-ms) cubic-bezier(.2,.9,.2,1);
+      will-change:transform
+    }
+
+    /* IDLE BREATHING between meditations: 2s expand, 2s contract (4s total) */
+    body:not(.running) .circle{animation:idle-breathe 4s ease-in-out infinite}
+    body.running .circle{animation:none}
+    @keyframes idle-breathe{
+      0%{ transform:scale(var(--min-scale)); }
+      50%{ transform:scale(var(--max-scale)); }
+      100%{ transform:scale(var(--min-scale)); }
+    }
+
+    .readout{text-align:center;margin-top:12px}
+    .phase{font-size:var(--phase-size);font-weight:800;letter-spacing:.4px}
+
+    .footer{color:var(--muted);font-size:var(--footer-size);text-align:center;margin:10px 0 24px;padding:0 12px}
+    .kbd{padding:2px 6px;border:1px solid var(--border);border-radius:6px;font-size:11px;background:#fff}
+
+    /* Drawer */
+    .overlay{
+      position:fixed;inset:0;background:rgba(15,23,40,.28);
+      opacity:0;pointer-events:none;transition:opacity .2s ease
+    }
+    .overlay.show{opacity:1;pointer-events:auto}
+
+    .drawer{
+      position:fixed;top:0;right:-420px;width:min(420px,92vw);height:100%;
+      background:#fff;border-left:1px solid var(--border);
+      box-shadow:-20px 0 60px rgba(0,0,0,.08);
+      transition:right .28s ease;display:flex;flex-direction:column;z-index:10
+    }
+    .drawer.show{right:0}
+    .drawer header{padding:18px;border-bottom:1px solid var(--border)}
+    .drawer h3{margin:0;font-size:16px}
+    .drawer .content{padding:16px;display:grid;gap:12px;overflow:auto}
+    .field .label{font-size:12px;color:var(--muted);text-transform:uppercase}
+    .range-wrap{display:flex;align-items:center;gap:10px;margin-top:8px}
+    select, input[type="range"], button{font-family:inherit}
+    select{width:100%;background:#fff;border:1px solid var(--border);padding:10px 12px;border-radius:12px;min-height:44px}
+    input[type="range"]{width:100%;appearance:none;background:linear-gradient(90deg, rgba(76,120,255,.25), rgba(34,193,167,.25));height:6px;border-radius:999px;border:none}
+    input[type="range"]::-webkit-slider-thumb{appearance:none;width:18px;height:18px;border-radius:50%;background:linear-gradient(135deg,var(--accent),var(--accent-2));border:none;box-shadow:0 4px 10px rgba(0,0,0,.2)}
+    .unit{color:var(--muted);font-size:12px;width:60px;text-align:right}
+
+    .actions{display:flex;gap:10px;justify-content:flex-end;margin-top:6px}
+    .btn{cursor:pointer;border:none;border-radius:14px;padding:12px 16px;font-weight:700;min-height:44px}
+    .btn-primary{background:linear-gradient(135deg,var(--accent),var(--accent-2));color:#fff;box-shadow:0 10px 22px rgba(76,120,255,.22)}
+    .btn-ghost{background:#fff;color:var(--text);border:1px solid var(--border)}
+
+    /* ===== Responsive tweaks ===== */
+
+    /* Compact phones / narrow widths */
+    @media (max-width: 480px) {
+      .container{padding: calc(var(--container-pad) - 4px)}
+      header{flex-wrap:wrap}
+      .brand h1{font-size:13px}
+      .gear{padding:10px 12px}
+      .hero{border-radius:20px}
+      .actions{flex-direction:column}
+      .btn{width:100%}
+      .drawer{
+        width:100vw; right:-100vw; border-left:none; border-top:1px solid var(--border);
+      }
+      .drawer.show{right:0}
+      .drawer header{padding:16px}
+      .drawer .content{padding-bottom: calc(16px + env(safe-area-inset-bottom))}
+    }
+
+    /* Tablets */
+    @media (min-width: 768px) {
+      .brand h1{font-size:16px}
+      .hero-inner{gap:14px}
+      .subtitle{max-width:60ch}
+    }
+
+    /* Large screens */
+    @media (min-width: 1200px) {
+      .container{padding: clamp(24px, 2vw, 36px)}
+      .hero-inner{padding:64px 32px}
+      :root{ --circle-size: clamp(360px, 48vmin, var(--circle-max)); }
+    }
+
+    /* Landscape phones: keep circle comfortable */
+    @media (max-height: 520px) and (orientation: landscape) {
+      :root{ --circle-size: clamp(180px, 60vmin, 420px); }
+      .subtitle{display:none}
+    }
+
+    /* Motion safety */
+    @media (prefers-reduced-motion: reduce) {
+      .circle{transition: none}
+      body:not(.running) .circle{animation: none}
+      .overlay, .drawer{transition: none}
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <div class="brand"><div class="brand-mark">◯</div><h1>Breathe</h1></div>
+      <button class="gear" id="openDrawer" aria-label="Options">Options ▸</button>
+    </header>
+
+    <section class="hero">
+      <div class="hero-inner">
+        <h2 class="title">Simplify your daily meditation</h2>
+        <p class="subtitle">No account. No clutter. Just a calm rhythm you can follow anywhere.</p>
+
+        <div class="stage" aria-live="polite">
+          <div class="circle-wrap">
+            <!-- SVG circular progress for SESSION duration -->
+            <svg class="progress-ring" viewBox="0 0 120 120" aria-hidden="true">
+              <defs>
+                <linearGradient id="g" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" stop-color="#22c1a7" stop-opacity="0.95"/>
+                  <stop offset="60%" stop-color="#22c1a7" stop-opacity="0.60"/>
+                  <stop offset="100%" stop-color="#4c78ff" stop-opacity="0.85"/>
+                </linearGradient>
+              </defs>
+              <circle class="track" cx="60" cy="60" r="56" fill="none" stroke-width="4"/>
+              <circle id="meter" class="meter" cx="60" cy="60" r="56" fill="none" stroke="url(#g)" stroke-width="6" stroke-dasharray="351.858" stroke-dashoffset="351.858"/>
+            </svg>
+
+            <div class="circle" id="circle" aria-label="Breath visual"></div>
+          </div>
+          <div class="readout">
+            <div class="phase" id="phase">Ready</div>
+          </div>
+
+          <p class="footer">Space = start/pause • R = reset • O = options</p>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <!-- Drawer -->
+  <div class="overlay" id="overlay"></div>
+  <aside class="drawer" id="drawer" aria-label="Session controls">
+    <header><h3>Session Options</h3></header>
+    <div class="content">
+      <div class="field">
+        <div class="label">Meditation duration (min)</div>
+        <div class="range-wrap">
+          <input type="range" id="duration" min="1" max="60" value="10"/>
+          <span class="unit" id="durationV">10 min</span>
+        </div>
+      </div>
+
+      <div class="field">
+        <div class="label">Preset</div>
+        <div class="range-wrap">
+          <select id="preset">
+            <option value="custom">Custom</option>
+            <option value="triangle-4-4-4" selected>Triangle • 4–4–4</option>
+            <option value="box-4-4-4-4">Box • 4–4–4–4</option>
+            <option value="478">4–7–8</option>
+            <option value="5315">5–3–5–3</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="field">
+        <div class="label">Inhale (sec)</div>
+        <div class="range-wrap">
+          <input type="range" id="inhale" min="1" max="12" value="4" />
+          <span class="unit" id="inhaleV">4s</span>
+        </div>
+      </div>
+
+      <div class="field">
+        <div class="label">Hold (sec)</div>
+        <div class="range-wrap">
+          <input type="range" id="hold" min="0" max="12" value="4" />
+          <span class="unit" id="holdV">4s</span>
+        </div>
+      </div>
+
+      <div class="field">
+        <div class="label">Exhale (sec)</div>
+        <div class="range-wrap">
+          <input type="range" id="exhale" min="1" max="16" value="4" />
+          <span class="unit" id="exhaleV">4s</span>
+        </div>
+      </div>
+
+      <div class="field">
+        <div class="label">After-exhale hold (sec)</div>
+        <div class="range-wrap">
+          <input type="range" id="after" min="0" max="12" value="0" />
+          <span class="unit" id="afterV">0s</span>
+        </div>
+      </div>
+
+      <div class="actions">
+        <button class="btn btn-ghost" id="reset" aria-label="Reset">Reset</button>
+        <button class="btn btn-primary" id="start" aria-label="Start">Start</button>
+      </div>
+    </div>
+  </aside>
+
+  <script>
+    const $ = (id) => document.getElementById(id)
+
+    // Elements
+    const circle = $("circle")
+    const phaseEl = $("phase")
+    const meter = $("meter")
+
+    // Controls in drawer
+    const controls = {
+      open: $("openDrawer"), overlay: $("overlay"), drawer: $("drawer"),
+      duration: $("duration"), durationV: $("durationV"),
+      preset: $("preset"), inhale: $("inhale"), hold: $("hold"), exhale: $("exhale"), after: $("after"),
+      inhaleV: $("inhaleV"), holdV: $("holdV"), exhaleV: $("exhaleV"), afterV: $("afterV"), start: $("start"), reset: $("reset")
+    }
+
+    // Drawer interactions
+    const openDrawerBtn = $("openDrawer")
+    const openDrawer = () => {controls.drawer.classList.add('show'); controls.overlay.classList.add('show')}
+    const closeDrawer = () => {controls.drawer.classList.remove('show'); controls.overlay.classList.remove('show')}
+    openDrawerBtn.addEventListener('click', openDrawer)
+    controls.overlay.addEventListener('click', closeDrawer)
+    window.addEventListener('keydown', (e)=>{ if(e.key==='Escape') closeDrawer() })
+
+    // Update labels beside sliders
+    const updateLabels = () => {
+      controls.durationV.textContent = controls.duration.value + ' min'
+      controls.inhaleV.textContent = controls.inhale.value + 's'
+      controls.holdV.textContent = controls.hold.value + 's'
+      controls.exhaleV.textContent = controls.exhale.value + 's'
+      controls.afterV.textContent = controls.after.value + 's'
+    }
+
+    // Presets
+    controls.preset.addEventListener('change', () => {
+      const v = controls.preset.value
+      if(v === 'triangle-4-4-4') setValues(4,4,4,0)
+      else if(v === 'box-4-4-4-4') setValues(4,4,4,4)
+      else if(v === '478') setValues(4,7,8,0)
+      else if(v === '5315') setValues(5,3,5,3)
+    })
+    function setValues(a,b,c,d){
+      controls.inhale.value=a;controls.hold.value=b;controls.exhale.value=c;controls.after.value=d;updateLabels()
+    }
+
+    // Breath engine
+    let schedule=[], i=0, t=0, running=false, raf, currentScale=parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--min-scale'))||0.72
+
+    function buildSchedule(){
+      schedule = []
+      const inh=+controls.inhale.value, h=+controls.hold.value, ex=+controls.exhale.value, af=+controls.after.value
+      if(inh>0) schedule.push(['Inhale', inh])
+      if(h>0) schedule.push(['Hold', h])
+      if(ex>0) schedule.push(['Exhale', ex])
+      if(af>0) schedule.push(['Hold', af])
+    }
+
+    function setPhase(name, seconds){
+      phaseEl.textContent = name
+      document.documentElement.style.setProperty('--phase-ms', (seconds*1000)+'ms')
+
+      const minS=parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--min-scale'))
+      const maxS=parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--max-scale'))
+
+      if(name==='Inhale'){ circle.style.transform=`scale(${maxS})`; currentScale=maxS }
+      else if(name==='Exhale'){ circle.style.transform=`scale(${minS})`; currentScale=minS }
+      else { circle.style.transform=`scale(${currentScale})` }
+    }
+
+    function breathTick(ts){
+      if(!running) return
+      if(!breathTick.last) breathTick.last = ts
+      const dt = (ts - breathTick.last) / 1000
+      if(dt >= 1){ t -= Math.floor(dt); breathTick.last = ts }
+      if(t < 0){ i = (i+1) % schedule.length; startPhase(); breathTick.last = ts }
+      raf = requestAnimationFrame(breathTick)
+    }
+
+    function startPhase(){ const [name, secs] = schedule[i]; t = secs; setPhase(name, secs) }
+
+    // Session duration (independent progress ring)
+    const C = 2 * Math.PI * 56 // circumference from r=56 in SVG
+    function setProgress(percent){ // 0..1
+      const off = C * (1 - percent)
+      meter.setAttribute('stroke-dashoffset', off)
+    }
+
+    let sessionTotalMs = 10 * 60 * 1000
+    let sessionStart = null
+    let sessionPausedAt = null
+    let sessionRaf
+
+    function sessionLoop(ts){
+      if(!running) return
+      if(sessionStart == null) sessionStart = ts
+      const elapsed = ts - sessionStart
+      const pct = Math.min(elapsed / sessionTotalMs, 1)
+      setProgress(pct)
+      if(pct >= 1){ finish(); return }
+      sessionRaf = requestAnimationFrame(sessionLoop)
+    }
+
+    function start(){
+      buildSchedule(); if(schedule.length===0) return
+      running = true; controls.start.textContent = 'Pause'; document.body.classList.add('running')
+
+      // session duration
+      sessionTotalMs = +controls.duration.value * 60 * 1000
+      if(sessionPausedAt){
+        // resume from pause
+        sessionStart = performance.now() - sessionPausedAt
+        sessionPausedAt = null
+      } else {
+        sessionStart = null; setProgress(0)
+      }
+
+      startPhase(); cancelAnimationFrame(raf); raf = requestAnimationFrame(breathTick)
+      cancelAnimationFrame(sessionRaf); sessionRaf = requestAnimationFrame(sessionLoop)
+      closeDrawer()
+    }
+
+    function pause(){
+      running = false; controls.start.textContent = 'Resume'; cancelAnimationFrame(raf); cancelAnimationFrame(sessionRaf)
+      breathTick.last = null
+      // remember progress for resume
+      if(sessionStart){ sessionPausedAt = performance.now() - sessionStart }
+    }
+
+    // Smooth reverse retract with end deceleration
+    function retractAndReset(duration=1600){
+      const startOff = parseFloat(meter.getAttribute('stroke-dashoffset')) || 0
+      const endOff = C
+      const startTime = performance.now()
+      function easeOutCubic(x){ return 1 - Math.pow(1 - x, 3) }
+      function step(now){
+        const t = Math.min((now - startTime)/duration, 1)
+        const eased = easeOutCubic(t)
+        const off = startOff + (endOff - startOff) * eased
+        meter.setAttribute('stroke-dashoffset', off)
+        if(t < 1){ requestAnimationFrame(step) } else { hardResetToIdle() }
+      }
+      requestAnimationFrame(step)
+    }
+
+    function finish(){
+      // pause timers, show complete, then retract ring and return to idle state
+      pause()
+      controls.start.textContent = 'Restart'
+      phaseEl.textContent = 'Complete'
+      retractAndReset(1600) // reverse with speed downramp toward the end
+    }
+
+    function hardResetToIdle(){
+      // fully reset visuals and state for the next meditation
+      const minS=parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--min-scale'))
+      document.body.classList.remove('running')
+      circle.style.transform=`scale(${minS})`
+      phaseEl.textContent='Ready'
+      setProgress(0) // in case we start again immediately
+      sessionStart=null; sessionPausedAt=null; i=0; t=0
+      controls.start.textContent='Start'
+    }
+
+    function reset(){
+      pause(); i=0; t=0; controls.start.textContent='Start'; document.body.classList.remove('running')
+      const minS=parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--min-scale'))
+      circle.style.transform=`scale(${minS})`
+      phaseEl.textContent='Ready'; setProgress(0); sessionStart=null; sessionPausedAt=null
+    }
+
+    // Bindings
+    updateLabels()
+    ;['input','change'].forEach(evt=>{
+      controls.duration.addEventListener(evt, updateLabels)
+      controls.inhale.addEventListener(evt, updateLabels)
+      controls.hold.addEventListener(evt, updateLabels)
+      controls.exhale.addEventListener(evt, updateLabels)
+      controls.after.addEventListener(evt, updateLabels)
+    })
+
+    controls.start.addEventListener('click', ()=>{ running ? pause() : start() })
+    controls.reset.addEventListener('click', reset)
+
+    // Keyboard
+    window.addEventListener('keydown', (e)=>{
+      if(e.code==='Space'){ e.preventDefault(); running ? pause() : start() }
+      if(e.key.toLowerCase()==='r'){ reset() }
+      if(e.key.toLowerCase()==='o'){ openDrawer() }
+    })
+  </script>
+</body>
+</html>
